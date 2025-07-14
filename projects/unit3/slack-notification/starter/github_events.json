@@ -1,0 +1,11 @@
+[
+  {
+    "timestamp": "2025-07-14T10:32:12.533733",
+    "event_type": "ping",
+    "action": null,
+    "workflow_run": null,
+    "check_run": null,
+    "repository": "muunseo/mcp_test",
+    "sender": "muunseo"
+  }
+]

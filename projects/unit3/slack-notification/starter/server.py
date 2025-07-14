@@ -9,8 +9,10 @@ import os
 import subprocess
 from typing import Optional
 from pathlib import Path
+import requests  # 추가됨
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import TextContent  # 추가됨
 
 # Initialize the FastMCP server
 mcp = FastMCP("pr-agent-slack")
@@ -48,7 +50,6 @@ TYPE_MAPPING = {
     "optimization": "performance.md",
     "security": "security.md"
 }
-
 
 # ===== Tools from Modules 1 & 2 (Complete with output limiting) =====
 
@@ -241,216 +242,58 @@ async def get_workflow_status(workflow_name: Optional[str] = None) -> str:
 
 @mcp.tool()
 async def send_slack_notification(message: str) -> str:
-    """Send a formatted notification to the team Slack channel.
-    
-    Args:
-        message: The message to send to Slack (supports Slack markdown)
-    """
+    """Slack 채널에 메시지 전송"""
     webhook_url = os.getenv("SLACK_WEBHOOK_URL")
     if not webhook_url:
-        return "Error: SLACK_WEBHOOK_URL environment variable not set"
-    
+        return "Error: SLACK_WEBHOOK_URL 환경변수가 설정되어 있지 않습니다."
     try:
-        # TODO: Import requests library
-        # TODO: Send POST request to webhook_url with JSON payload
-        # TODO: Include the message in the JSON data
-        # TODO: Handle the response and return appropriate status
-        
-        # For now, return a placeholder
-        return f"TODO: Implement Slack webhook POST request for message: {message[:50]}..."
-        
+        response = requests.post(
+            webhook_url,
+            json={"text": message, "mrkdwn": True}
+        )
+        if response.status_code == 200:
+            return "Slack 알림 전송 성공"
+        else:
+            return f"Slack 알림 전송 실패: HTTP {response.status_code}"
     except Exception as e:
-        return f"Error sending message: {str(e)}"
+        return f"알림 전송 중 오류 발생: {str(e)}"
 
 
 # ===== New Module 3: Slack Formatting Prompts =====
 
 @mcp.prompt()
-async def format_ci_failure_alert():
-    """Create a Slack alert for CI/CD failures with rich formatting."""
-    return """Format this GitHub Actions failure as a Slack message using ONLY Slack markdown syntax:
+def format_ci_failure_alert() -> str:
+    return """
+    :rotating_light: *CI Failure Alert* :rotating_light:
 
-❌ *CI Failed* - [Repository Name]
+    CI 워크플로우가 실패했습니다:
+    *Workflow*: workflow_name
+    *Branch*: branch_name
+    *Status*: Failed
+    *View Details*: <LOGS_LINK|View Logs>
 
-> Brief summary of what failed
+    로그를 확인하고 문제를 해결해 주세요.
 
-*Details:*
-• Workflow: `workflow_name`
-• Branch: `branch_name`  
-• Commit: `commit_hash`
-
-*Next Steps:*
-• <https://github.com/test/repo/actions/runs/123|View Action Logs>
-
-CRITICAL: Use EXACT Slack link format: <https://full-url|Link Text>
-Examples:
-- CORRECT: <https://github.com/user/repo|Repository>
-- WRONG: [Repository](https://github.com/user/repo)
-- WRONG: https://github.com/user/repo
-
-Other Slack formats:
-- *text* for bold (NOT **text**)
-- `text` for code
-- > text for quotes
-- • for bullets"""
-
+    Slack 마크다운 포맷팅을 사용하며, 간결하게 작성하세요.
+    """
 
 @mcp.prompt()
-async def format_ci_success_summary():
-    """Create a Slack message celebrating successful deployments."""
-    return """Format this successful GitHub Actions run as a Slack message using ONLY Slack markdown syntax:
+def format_ci_success_summary() -> str:
+    return """
+    :white_check_mark: *Deployment Successful* :white_check_mark:
 
-✅ *Deployment Successful* - [Repository Name]
+    다음 저장소에 배포가 성공했습니다: [Repository Name]
 
-> Brief summary of what was deployed
+    *변경 사항:*
+    - 주요 기능 또는 수정 1
+    - 주요 기능 또는 수정 2
 
-*Changes:*
-• Key feature or fix 1
-• Key feature or fix 2
+    *링크:*
+    <PR_LINK|View Changes>
 
-*Links:*
-• <https://github.com/user/repo|View Changes>
-
-CRITICAL: Use EXACT Slack link format: <https://full-url|Link Text>
-Examples:
-- CORRECT: <https://github.com/user/repo|Repository>
-- WRONG: [Repository](https://github.com/user/repo)
-- WRONG: https://github.com/user/repo
-
-Other Slack formats:
-- *text* for bold (NOT **text**)
-- `text` for code
-- > text for quotes
-- • for bullets"""
-
-
-# ===== Prompts from Module 2 (Complete) =====
-
-@mcp.prompt()
-async def analyze_ci_results():
-    """Analyze recent CI/CD results and provide insights."""
-    return """Please analyze the recent CI/CD results from GitHub Actions:
-
-1. First, call get_recent_actions_events() to fetch the latest CI/CD events
-2. Then call get_workflow_status() to check current workflow states
-3. Identify any failures or issues that need attention
-4. Provide actionable next steps based on the results
-
-Format your response as:
-## CI/CD Status Summary
-- **Overall Health**: [Good/Warning/Critical]
-- **Failed Workflows**: [List any failures with links]
-- **Successful Workflows**: [List recent successes]
-- **Recommendations**: [Specific actions to take]
-- **Trends**: [Any patterns you notice]"""
-
-
-@mcp.prompt()
-async def create_deployment_summary():
-    """Generate a deployment summary for team communication."""
-    return """Create a deployment summary for team communication:
-
-1. Check workflow status with get_workflow_status()
-2. Look specifically for deployment-related workflows
-3. Note the deployment outcome, timing, and any issues
-
-Format as a concise message suitable for Slack:
-
-🚀 **Deployment Update**
-- **Status**: [✅ Success / ❌ Failed / ⏳ In Progress]
-- **Environment**: [Production/Staging/Dev]
-- **Version/Commit**: [If available from workflow data]
-- **Duration**: [If available]
-- **Key Changes**: [Brief summary if available]
-- **Issues**: [Any problems encountered]
-- **Next Steps**: [Required actions if failed]
-
-Keep it brief but informative for team awareness."""
-
-
-@mcp.prompt()
-async def generate_pr_status_report():
-    """Generate a comprehensive PR status report including CI/CD results."""
-    return """Generate a comprehensive PR status report:
-
-1. Use analyze_file_changes() to understand what changed
-2. Use get_workflow_status() to check CI/CD status
-3. Use suggest_template() to recommend the appropriate PR template
-4. Combine all information into a cohesive report
-
-Create a detailed report with:
-
-## 📋 PR Status Report
-
-### 📝 Code Changes
-- **Files Modified**: [Count by type - .py, .js, etc.]
-- **Change Type**: [Feature/Bug/Refactor/etc.]
-- **Impact Assessment**: [High/Medium/Low with reasoning]
-- **Key Changes**: [Bullet points of main modifications]
-
-### 🔄 CI/CD Status
-- **All Checks**: [✅ Passing / ❌ Failing / ⏳ Running]
-- **Test Results**: [Pass rate, failed tests if any]
-- **Build Status**: [Success/Failed with details]
-- **Code Quality**: [Linting, coverage if available]
-
-### 📌 Recommendations
-- **PR Template**: [Suggested template and why]
-- **Next Steps**: [What needs to happen before merge]
-- **Reviewers**: [Suggested reviewers based on files changed]
-
-### ⚠️ Risks & Considerations
-- [Any deployment risks]
-- [Breaking changes]
-- [Dependencies affected]"""
-
-
-@mcp.prompt()
-async def troubleshoot_workflow_failure():
-    """Help troubleshoot a failing GitHub Actions workflow."""
-    return """Help troubleshoot failing GitHub Actions workflows:
-
-1. Use get_recent_actions_events() to find recent failures
-2. Use get_workflow_status() to see which workflows are failing
-3. Analyze the failure patterns and timing
-4. Provide systematic troubleshooting steps
-
-Structure your response as:
-
-## 🔧 Workflow Troubleshooting Guide
-
-### ❌ Failed Workflow Details
-- **Workflow Name**: [Name of failing workflow]
-- **Failure Type**: [Test/Build/Deploy/Lint]
-- **First Failed**: [When did it start failing]
-- **Failure Rate**: [Intermittent or consistent]
-
-### 🔍 Diagnostic Information
-- **Error Patterns**: [Common error messages or symptoms]
-- **Recent Changes**: [What changed before failures started]
-- **Dependencies**: [External services or resources involved]
-
-### 💡 Possible Causes (ordered by likelihood)
-1. **[Most Likely]**: [Description and why]
-2. **[Likely]**: [Description and why]
-3. **[Possible]**: [Description and why]
-
-### ✅ Suggested Fixes
-**Immediate Actions:**
-- [ ] [Quick fix to try first]
-- [ ] [Second quick fix]
-
-**Investigation Steps:**
-- [ ] [How to gather more info]
-- [ ] [Logs or data to check]
-
-**Long-term Solutions:**
-- [ ] [Preventive measure]
-- [ ] [Process improvement]
-
-### 📚 Resources
-- [Relevant documentation links]
-- [Similar issues or solutions]"""
+    축하 메시지이면서도 유익한 정보를 담도록 작성하세요.
+    Slack 마크다운 포맷팅을 사용합니다.
+    """
 
 
 if __name__ == "__main__":
