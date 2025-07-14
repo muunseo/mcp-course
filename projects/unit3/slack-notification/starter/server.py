@@ -3,7 +3,7 @@
 Module 3: Slack Notification Integration
 Combines all MCP primitives (Tools and Prompts) for complete team communication workflows.
 """
-"모듈3"
+"모듈3 : Slack 알림 통합"
 import json
 import os
 import subprocess
@@ -13,7 +13,8 @@ import requests  # 추가됨
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent  # 추가됨
-
+from dotenv import load_dotenv
+load_dotenv()
 # Initialize the FastMCP server
 mcp = FastMCP("pr-agent-slack")
 

@@ -7,5 +7,14 @@
     "check_run": null,
     "repository": "muunseo/mcp_test",
     "sender": "muunseo"
+  },
+  {
+    "timestamp": "2025-07-14T14:34:21.343449",
+    "event_type": "ping",
+    "action": null,
+    "workflow_run": null,
+    "check_run": null,
+    "repository": "muunseo/mcp_test",
+    "sender": "muunseo"
   }
 ]
